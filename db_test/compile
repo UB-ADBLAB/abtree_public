@@ -1,0 +1,5 @@
+#!/bin/bash
+
+mkdir -p bin
+javac -classpath lib/postgresql-42.2.19.jar -d bin `find src -name '*.java'`
+

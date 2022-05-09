@@ -1,0 +1,5 @@
+#!/bin/bash
+
+BASEDIR="$(cd "`dirname "$(realpath $0)"`"; pwd)"
+
+java -classpath "$BASEDIR/bin/:$BASEDIR/lib/postgresql-42.2.19.jar" "$@"

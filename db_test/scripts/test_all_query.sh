@@ -1,0 +1,62 @@
+#!/bin/bash
+
+N=500000
+
+for tree in abtree baseline; do
+	if [ "x$tree" = "xabtree" ]; then
+		BUILD="release"
+		src_data=/mnt/ssd1/zyzhao/loaded_data/abtree_1B
+		src_pgwal=/mnt/ssd1/zyzhao/loaded_data/abtree_pg_wal_1B
+	elif [ x"$tree" = "xbaseline" ]; then
+		BUILD="baseline"
+		src_data=/mnt/ssd1/zyzhao/loaded_data/baseline_1B
+		src_pgwal=/mnt/ssd1/zyzhao/loaded_data/baseline_pg_wal_1B
+	else
+		echo "Invalid tree name: $tree"
+		exit 2
+	fi
+
+	. ./switch_pg.sh $BUILD
+
+	echo "copying data"
+	dst_data=$PGDATA
+	dst_pgwal=/mnt/ssd2/zyzhao/pg_wal
+
+	rm -rf $dst_data &
+	rm -rf $dst_pgwal &
+	wait
+	cp -r $src_data $dst_data &
+	cp -r $src_pgwal $dst_pgwal &
+	wait
+	ln -s $dst_pgwal $dst_data/pg_wal
+	echo "copy done"
+
+	for t in 1 2 3 4 5 6 7 8 9 10 13 15 17 20 23 25 30 33 36; do
+		for shared_buffers in 32GB; do
+			cp $src_data/postgresql.conf $dst_data/postgresql.conf
+			echo "shared_buffers = $shared_buffers" >> $dst_data/postgresql.conf
+
+			echo "starting postgresql"
+			numactl --cpubind=0 --membind=0 pg_ctl start
+
+			echo "wait 5 seconds"
+			sleep 5 
+
+			echo "testing..."
+			PREFIX="logs/q_${tree}_n${t}_S${shared_buffers}"
+			./run test.MixedWorkload -i test_abtree 0 0 0 0 0 10000 $t \
+				0 0 0 30 ${PREFIX}.meter | tee ${PREFIX}.log
+
+			echo "cleaning up..."
+			pg_ctl stop
+			sleep 2
+		done
+	done
+	
+	echo "deleting data..."	
+	sleep 2
+	rm -rf $dst_data &
+	rm -rf $dst_pgwal &
+	wait
+done
+

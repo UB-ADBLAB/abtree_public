@@ -1,0 +1,70 @@
+To compile the java clients: ./compile (you'll need java and javac)
+
+To run any test: ./run test.<some-test-class> <args...>
+
+sql/ has the sql files for setting up the tables.
+
+scripts/ has the scripts for running the experiments.
+    -- Unfortunately, many paths are hard coded here with my username in it.
+    -- /mnt/ssd1 and /mnt/ssd2 on my machine are both the slower Sandisk SSD
+    -- /mnt/ssd3 is the Samsung 970 EVO 1TB SSD.
+    -- To run the experiments on your local machine, you'd have to set the
+    correct paths in switch_pg.sh and many other bash scripts. Alternatively,
+    you may find the usage of the java test classes in these bash scripts. The
+    parameters are listed below.
+
+In all experiments, for Bernoulli sampling/B-tree/AB-tree, we use the AB-tree
+codebase. For the baseline, we use the baseline codebase.
+
+To initialize a DB with 1B/10M data, do the following:
+
+export PGDATA="path to where you want to put your data files"
+initdb
+
+# optional: move the pg_wal to a second disk
+mv $PGDATA/pg_wal "path to where you want to put WAL files"
+ln -s "path to where you want to put WAL files" $PGDATA/pg_wal
+
+# edit the postgresql.conf if necessary
+we set max_wal_size = 80GB; full_page_writes = off and
+shared_buffers = 32GB or 128GB.
+
+Also you might want to adjust the GC interval to a higher number, e.g., 10000
+(10 seconds) to avoid wasting too many CPU cycles.
+
+pg_ctl start
+createdb test_abtree (or some other name you want)
+
+## load only the heap file
+cat ./sql/create_table_only.sql | psql localhost
+./run test.InsertManyRandom test_abtree num_inserts_per_thread num_thread seed
+
+## Bulk load the indexes
+cat ./sql/create_table.sql | psql localhost ## for ab-tree
+# or
+cat ./sql/create_table_bt.sql | psql localhost ## for b-tree
+pg_ctl stop
+
+List of experiments with parameters included:
+
+Figure 9(a): bern.sh (for Bernoulli sampilng) and swr.sh (for AB-tree and
+baseline).
+
+Figuer 9(b): bern_t.sh (for Bernoulli sampling) and test_all_query.sh (for
+AB-tree and baseline)
+
+Figures 10-13: test_all_ins.sh (which calls test_ins.sh)
+
+Figures 14: test_all_mixed.sh (which calls test_insert_with_mixed_query.sh)
+
+Figure 15: Load a database with 20 threads and 500,000 inserts each. Find the
+seed of any one of the thread from the screen output (not the seed specified
+in your command line for test.InsertManyRandom!). Then we run:
+./test_vacuum.sh abtree the-seed-above 10
+
+Figure 16: create TPC-H table using sql/tpch/createtable.sql, load the TPC-H
+data with scale factor 100, and bulk load the indexes using the other two
+scripts in sql/tpch. Run scripts/tpch_all.sh. The table sizes and index sizes
+are computed by inspecting and aggregating their files in the database
+directory after the database shuts down.
+

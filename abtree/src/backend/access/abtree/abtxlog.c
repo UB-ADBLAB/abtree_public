@@ -617,10 +617,10 @@ abtree_xlog_dedup(XLogReaderState *record)
 		state->basetupsize = 0;
 		state->htids = palloc(state->maxpostingsize);
 		state->aggs = agg_info->leaf_has_agg ? ((Pointer) palloc(
-			ABTDedupMaxNumberOfTIDs(state, agg_info) * agg_info->agg_stride)) :
+			ABTDedupMaxNumberOfTIDs(state) * agg_info->agg_stride)) :
 			NULL;
 		state->xmins = (TransactionId *) palloc(
-			ABTDedupMaxNumberOfTIDs(state, agg_info) * sizeof(TransactionId));
+			ABTDedupMaxNumberOfTIDs(state) * sizeof(TransactionId));
 		state->nhtids = 0;
 		state->nitems = 0;
 		state->phystupsize = 0;
